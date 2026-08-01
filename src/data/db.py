@@ -85,7 +85,7 @@ class StockBasic(BaseModel):
 class StockBazi(BaseModel):
     """公司八字排盘结果"""
 
-    stock = ForeignKeyField(StockBasic, backref="bazi", unique=True)
+    stock = ForeignKeyField(StockBasic, backref="bazi")
     bazi_type = CharField(max_length=10)  # founded | ipo
     year_gan = CharField(max_length=4)
     year_zhi = CharField(max_length=4)

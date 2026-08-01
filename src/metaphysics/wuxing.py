@@ -93,10 +93,53 @@ SECTOR_WUXING_MAP = {
     "化学制品": "土",
 }
 
+# 证监会(CSRC)行业大类 → 五行映射
+# 深交所返回的所属行业格式为 "字母 行业名"，如 "J 金融业"
+# 字母为 CSRC 行业分类代码
+CSRC_INDUSTRY_WUXING_MAP = {
+    "A": "木",   # 农、林、牧、渔业
+    "B": "土",   # 采矿业 → 矿业属土
+    "C": "金",   # 制造业 → 默认金，细分需进一步判断
+    "D": "火",   # 电力、热力、燃气及水 → 能源属火
+    "E": "土",   # 建筑业
+    "F": "水",   # 批发和零售业 → 商贸流通属水
+    "G": "水",   # 交通运输、仓储和邮政业 → 流通属水
+    "H": "水",   # 住宿和餐饮业
+    "I": "火",   # 信息传输、软件和信息技术服务业 → 科技属火
+    "J": "金",   # 金融业
+    "K": "土",   # 房地产业
+    "L": "水",   # 租赁和商务服务业
+    "M": "火",   # 科学研究和技术服务业
+    "N": "水",   # 水利、环境和公共设施管理业
+    "O": "火",   # 居民服务、修理和其他服务业
+    "P": "木",   # 教育
+    "Q": "木",   # 卫生和社会工作 → 医药属木
+    "R": "火",   # 文化、体育和娱乐业 → 传媒属火
+    "S": "土",   # 综合
+}
+
+
+def get_csrc_industry_wuxing(industry_str: str) -> Optional[str]:
+    """
+    从证监会行业分类字符串中提取五行属性
+    输入格式: "J 金融业" 或 "C 制造业"
+    """
+    if not industry_str:
+        return None
+    code = industry_str.strip()[0].upper()
+    return CSRC_INDUSTRY_WUXING_MAP.get(code)
+
 
 def get_sector_wuxing(sector_name: str) -> Optional[str]:
-    """获取板块的五行属性"""
-    return SECTOR_WUXING_MAP.get(sector_name)
+    """获取板块的五行属性，支持申万板块名和CSRC行业分类"""
+    if not sector_name:
+        return None
+    # 先查申万板块映射
+    wx = SECTOR_WUXING_MAP.get(sector_name)
+    if wx:
+        return wx
+    # 再查CSRC行业大类
+    return get_csrc_industry_wuxing(sector_name)
 
 
 def get_wuxing_relation(mine: str, theirs: str) -> str:
