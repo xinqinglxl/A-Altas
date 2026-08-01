@@ -9,7 +9,7 @@ import streamlit as st
 from datetime import date
 
 from src.data.db import db, ExchangeRate, UserProfile, DailySignal
-from src.data.kline_fake import generate_fake_kline
+from src.data.kline_real import get_kline
 from src.metaphysics.ganzhi import get_daily_signal
 from src.data.exchange import get_usd_cny_latest
 from src.utils.logger import get_logger
@@ -198,7 +198,7 @@ def kline_viewer_page():
             st.caption(f"当前汇率: 1 USD = {rate:.4f} CNY")
 
         st.divider()
-        st.caption("⚠️ K线数据为模拟数据（真实数据接口不稳定），美元计价汇率来自真实历史数据。")
+        st.caption("K线数据优先使用真实接口 (Baostock/新浪/腾讯)，全部失败时回退模拟数据。")
 
     # ---- 主区域 ----
     if not search:
@@ -206,11 +206,11 @@ def kline_viewer_page():
         db.close()
         return
 
-    with st.spinner(f"正在生成 {symbol} 模拟K线数据..."):
+    with st.spinner(f"正在获取 {symbol} K线数据..."):
         try:
             logger.info("K线加载: symbol=%s, period=%d, days=%d, usd=%s", symbol, period, days, use_usd)
 
-            # 使用模拟数据 (真实数据接口不稳定)
+            # 使用真实数据（自动回退）
             from datetime import date as dt_date, timedelta
 
             end_d = dt_date.today()
@@ -218,7 +218,7 @@ def kline_viewer_page():
             start_str = start_d.strftime("%Y%m%d")
             end_str = end_d.strftime("%Y%m%d")
 
-            df = generate_fake_kline(
+            df, data_label = get_kline(
                 symbol=symbol,
                 start_date=start_str,
                 end_date=end_str,
@@ -226,8 +226,8 @@ def kline_viewer_page():
             )
 
             if df.empty:
-                logger.warning("假K线生成失败: symbol=%s", symbol)
-                st.error(f"无法生成 {symbol} 的模拟数据")
+                logger.warning("K线获取失败: symbol=%s", symbol)
+                st.error(f"无法获取 {symbol} 的K线数据")
                 db.close()
                 return
 
@@ -235,8 +235,8 @@ def kline_viewer_page():
 
             df = resample_kline(df, period) if period > 1 else df
 
-            st.info(f"📡 模拟数据 · 共 {len(df)} 根K线 (周期: {period}日)")
-            logger.info("假K线加载成功: %s, %d 条, period=%d", symbol, len(df), period)
+            st.info(f"📡 {data_label} · 共 {len(df)} 根K线 (周期: {period}日)")
+            logger.info("K线加载成功: %s, %d 条, period=%d, 来源=%s", symbol, len(df), period, data_label)
 
             # 美元转换
             if use_usd:
@@ -270,7 +270,7 @@ def kline_viewer_page():
                 )
                 avail_cols = [c for c in show_cols if c in df.columns]
                 st.dataframe(df[avail_cols].tail(20), use_container_width=True)
-                st.caption("⚠️ 数据来源: 模拟生成 (几何布朗运动) —— 仅供界面展示，不反映真实股价")
+                st.caption(f"数据来源: {data_label}")
 
             # 显示当日信号
             if show_fortune:
