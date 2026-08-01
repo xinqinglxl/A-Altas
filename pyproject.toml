@@ -1,0 +1,16 @@
+[project]
+name = "a-altas"
+version = "0.2.0"
+description = "A-ALTAS: 玄学量化 A 股分析工具"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "akshare>=1.18.64",
+    "efinance>=0.5.8",
+    "lightweight-charts>=2.1",
+    "lunar-python>=1.4.0",
+    "numpy>=2.4.6",
+    "pandas>=3.0.3",
+    "peewee>=3.17.0",
+    "streamlit>=1.58.0",
+]

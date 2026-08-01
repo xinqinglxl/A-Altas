@@ -1,17 +1,121 @@
-# K-Reforged ⚒️
+# A-ALTAS ⚒️
 
-> Break the limits. Reforge your K-lines.
+> Break the limits. Reforge your K-lines. Trade with the stars.
 
-主流软件只给你 1、5、15 分钟线？那 7 分钟线呢？13 分钟线呢？
-`K-Reforged` 是一个面向个人投资者的 A 股分析工具，旨在打破常规周期的限制，让你用 1 分钟线**重铸**出任意周期的 K 线，并以此验证你那些不落俗套的交易想法。
+**A-ALTAS** is a personal A-share (China stock market) analysis toolkit that blends two unlikely worlds: **custom-period K-line reforging** and **Chinese metaphysics quantitative analysis**. It helps you see the market in ways mainstream trading software won't let you — whether that's a 7-minute candlestick or a stock pick guided by your Bazi (八字).
 
-## ✨ 核心特色 (MVP)
-- 🔥 **自定义周期 K 线**：7 分钟、13 分钟？只要你想要，用 1 分钟线瞬间重铸。
-- 🎯 **想法验证器**：不再受限于主流软件的死板指标，用 Python 写出你的逻辑并立刻验证。
-- 🛡️ **合规第一**：基于 AkShare 获取公开数据，绝不涉及高频爬虫与自动交易。
+🌐 [中文文档](README_CN.md)
 
-## ⚠️ 免责声明
-本项目仅供学习与量化研究使用。不构成任何投资建议，据此交易盈亏自负。请确保你的数据获取方式符合相关法律法规及数据源协议。
+---
+
+## ✨ Features
+
+### 🔥 Custom-Period K-Line Reforging
+Standard platforms lock you into fixed intervals (1m, 5m, 15m, daily...). A-ALTAS lets you **reforge** daily K-lines into any custom period — 7 minutes, 13 minutes, 3 days, whatever your strategy demands.
+
+### 🧧 Metaphysics Quantitative Engine
+A full stack of traditional Chinese metaphysical tools applied to stock analysis:
+
+| Module | What It Does |
+|--------|-------------|
+| **Bazi Chart** (八字排盘) | Input your birth date & time, get your Four Pillars, Day Master element, and XiYong Shen (喜用神) |
+| **Fortune Stock Picker** (财神选股) | Scores stocks by Bazi compatibility, Five Elements matching, and Ganzhi timing — ranks the top 50 |
+| **Daily Signal** (每日信号) | Heavenly Stems & Earthly Branches analysis, Huangli (almanac) dos & don'ts, sector-element recommendations, solar-term rotation signals |
+| **USD K-Line Viewer** (K线看盘) | Original + USD-denominated candlestick charts using real historical exchange rates, with fortune-day annotations |
+
+### 📊 Tech Stack
+- **Streamlit** — interactive multi-page web UI
+- **lunar-python** — Bazi, Ganzhi, solar terms, Chinese almanac
+- **akshare / efinance** — A-share public market data
+- **Lightweight Charts** — interactive candlestick rendering
+- **pandas / numpy** — data processing
+- **SQLite + Peewee** — lightweight local database
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Python 3.12+
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
+
+### Install & Run
+
+```bash
+# Clone the repo
+git clone git@github.com:xinqinglxl/A-Altas.git
+cd A-Altas
+
+# Install dependencies
+uv sync
+
+# Initialize database & seed data
+.venv/bin/python3 -m src.data.seeder
+
+# Launch the app
+.venv/bin/python3 -m streamlit run app.py
+```
+
+Then open **http://localhost:8501** in your browser.
+
+---
+
+## 📁 Project Structure
+
+```
+A-Altas/
+├── app.py                    # Streamlit entry point (multi-page navigation)
+├── src/
+│   ├── metaphysics/          # Metaphysics engine
+│   │   ├── bazi.py           #   Bazi (Four Pillars of Destiny)
+│   │   ├── ganzhi.py         #   Heavenly Stems & Earthly Branches
+│   │   └── wuxing.py         #   Five Elements mapping
+│   ├── data/                 # Data layer
+│   │   ├── db.py             #   SQLite schema & Peewee models
+│   │   ├── exchange.py       #   USD/CNY exchange rate fetcher
+│   │   ├── seeder.py         #   Database initializer
+│   │   └── fetcher.py        #   A-share data (legacy)
+│   ├── strategy/             # Scoring engine
+│   │   └── scorer.py         #   Fortune Index (财神指数) calculation
+│   ├── viz/                  # Visualization
+│   │   └── chart_renderer.py #   K-line chart rendering
+│   ├── kline_builder.py      # K-line reforging logic
+│   └── pages/                # Streamlit pages
+│       ├── home.py           #   Bazi chart input
+│       ├── stock_picker.py   #   Fortune stock ranking
+│       ├── daily_signal.py   #   Daily metaphysics signals
+│       └── kline_viewer.py   #   K-line viewer with USD mode
+├── data/                     # SQLite database (gitignored)
+└── pyproject.toml
+```
+
+---
+
+## 🔍 Data Authenticity
+
+We strive to use real data wherever possible. Here's what's real and what's simulated:
+
+| Data | Source | Authenticity |
+|------|--------|:---:|
+| Stock codes & names | akshare (CSI 300 constituents) | ✅ Real |
+| USD/CNY exchange rates | akshare historical FX | ✅ Real |
+| Daily Ganzhi, solar terms, Huangli | lunar-python calculation | ✅ Real |
+| IPO / founding dates | **Simulated** (akshare API unavailable) | ⚠️ Fake |
+| Company Bazi | Derived from simulated dates | ⚠️ Fake |
+| Sector Five-Element mapping | Manual static classification | ⚠️ Subjective |
+
+**All simulated data is explicitly labeled `[假]` in the UI.**
+
+---
+
+## ⚠️ Disclaimer
+
+This project is for **educational and entertainment purposes only**. It does NOT constitute investment advice. Trade at your own risk. The metaphysics features are cultural curiosities, not financial models — please do not make real investment decisions based on Bazi compatibility scores.
+
+Ensure your data collection methods comply with applicable laws and data source terms of service.
+
+---
 
 ## License
+
 [MIT](LICENSE)
