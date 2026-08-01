@@ -13,6 +13,7 @@ from src.metaphysics.wuxing import (
     wuxing_color,
 )
 from src.utils.logger import get_logger
+from src.utils.user_guard import get_current_user
 
 logger = get_logger(__name__)
 
@@ -23,21 +24,12 @@ def daily_signal_page():
 
     db.connect()
 
-    # 获取当前用户
-    user = None
+    # 获取当前用户（每日信号页用户信息为可选，但用户专属建议需要）
+    user = get_current_user()
     user_xi_shen = []
-    if "user_id" in st.session_state:
-        try:
-            user = UserProfile.get_by_id(st.session_state["user_id"])
-            user_xi_shen = user.xi_shen.split(",") if user.xi_shen else []
-        except Exception:
-            pass
-    else:
-        u = UserProfile.select().order_by(UserProfile.id.desc()).first()
-        if u:
-            st.session_state["user_id"] = u.id
-            user = u
-            user_xi_shen = u.xi_shen.split(",") if u.xi_shen else []
+    if user:
+        user_xi_shen = user.xi_shen.split(",") if user.xi_shen else []
+        logger.info("每日信号页面加载: user=%s", user.name)
 
     # ---- 侧边栏 ----
     with st.sidebar:
@@ -71,6 +63,11 @@ def daily_signal_page():
         db.close()
         return
 
+    # 非交易日提示
+    if not signal.get("is_trading_day", True):
+        reason = signal.get("non_trading_reason") or "非交易日"
+        st.warning(f"⚠️ **{selected_date} 非交易日** — {reason}，A股休市，无交易信号")
+
     # 日柱卡片
     st.subheader(f"{selected_date} 日柱信息")
 
@@ -80,12 +77,6 @@ def daily_signal_page():
     with cols[1]:
         st.metric("五行", signal["day_wuxing"])
     with cols[2]:
-        trade_color = {
-            "宜买入": "red",
-            "忌交易": "green",
-            "宜观望": "gray",
-        }
-        color = trade_color.get(signal["trade_signal"], "gray")
         st.metric("交易信号", signal["trade_signal"])
 
     if signal.get("caishen"):
@@ -196,7 +187,9 @@ def daily_signal_page():
                     s_gan_zhi = f"{ws['day_gan']}{ws['day_zhi']}"
                     s_signal = ws["trade_signal"]
 
-                signal_emoji = {"宜买入": "🟢", "忌交易": "🔴", "宜观望": "⚪"}
+                signal_emoji = {
+                    "宜买入": "🟢", "忌交易": "🔴", "宜观望": "⚪", "休市": "🟫",
+                }
                 emoji = signal_emoji.get(s_signal, "⚪")
                 st.markdown(f"**{s_date}**")
                 st.markdown(f"*{s_gan_zhi}*")

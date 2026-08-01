@@ -9,9 +9,12 @@ import streamlit as st
 from datetime import date
 
 from src.data.db import db, ExchangeRate, UserProfile, DailySignal
+from src.data.kline_fake import generate_fake_kline
 from src.metaphysics.ganzhi import get_daily_signal
 from src.data.exchange import get_usd_cny_latest
 from src.utils.logger import get_logger
+from src.utils.trading_calendar import get_non_trading_reason, get_recent_trading_day, is_trading_day
+from src.utils.user_guard import get_current_user
 
 logger = get_logger(__name__)
 
@@ -150,34 +153,52 @@ def kline_viewer_page():
 
     db.connect()
 
-    # 侧边栏
+    # 顶部交易日状态提示
+    today = date.today()
+    today_reason = get_non_trading_reason(today)
+    if today_reason:
+        last_td = get_recent_trading_day(today)
+        st.warning(
+            f"⚠️ 今天 {today.strftime('%Y-%m-%d')} {today_reason}，"
+            f"最近交易日为 **{last_td.strftime('%Y-%m-%d')}**"
+        )
+    else:
+        st.success(f"✅ 今天 {today.strftime('%Y-%m-%d')} 为交易日，正常开市")
+
+    # 侧边栏 — 表单模式：修改周期/天数不会自动重画，必须点"加载K线"
     with st.sidebar:
         st.header("图表配置")
-        symbol = st.text_input("股票代码", value="000001")
 
-        use_usd = st.checkbox("美元计价 (USD)", value=False)
+        with st.form("kline_config"):
+            symbol = st.text_input("股票代码", value="000001")
+            use_usd = st.checkbox("美元计价 (USD)", value=False)
 
-        col1, col2 = st.columns(2)
-        with col1:
-            period = st.number_input("重铸周期(日)", min_value=1, max_value=30, value=1)
-        with col2:
-            days = st.number_input("数据天数", min_value=30, max_value=730, value=180)
+            col1, col2 = st.columns(2)
+            with col1:
+                period = st.number_input("重铸周期(日)", min_value=1, max_value=30, value=1)
+            with col2:
+                days = st.number_input("数据天数", min_value=30, max_value=730, value=180)
 
-        st.divider()
+            st.divider()
 
-        # 运势叠加
-        st.subheader("运势标注")
-        show_fortune = st.checkbox("显示运势日", value=False)
+            st.subheader("运势标注")
+            show_fortune = st.checkbox("显示运势日", value=False)
+            if show_fortune:
+                user = get_current_user()
+                if user is None:
+                    st.caption("⚠️ 运势标注需要八字信息，请先在【八字排盘】页面输入生辰")
+                else:
+                    st.caption(f"当前用户: {user.name} (日主: {user.day_master})")
 
-        # 汇率信息
+            search = st.form_submit_button("加载K线", type="primary", use_container_width=True)
+
+        # 汇率信息（独立于表单，实时展示）
         rate = get_usd_cny_latest()
         if rate:
             st.caption(f"当前汇率: 1 USD = {rate:.4f} CNY")
 
-        search = st.button("加载K线", type="primary", use_container_width=True)
-
         st.divider()
-        st.caption("提示：美元计价的汇率来自真实汇率数据（akshare），K线数据来源见标注。")
+        st.caption("⚠️ K线数据为模拟数据（真实数据接口不稳定），美元计价汇率来自真实历史数据。")
 
     # ---- 主区域 ----
     if not search:
@@ -185,17 +206,28 @@ def kline_viewer_page():
         db.close()
         return
 
-    with st.spinner(f"正在加载 {symbol} K线数据..."):
+    with st.spinner(f"正在生成 {symbol} 模拟K线数据..."):
         try:
             logger.info("K线加载: symbol=%s, period=%d, days=%d, usd=%s", symbol, period, days, use_usd)
-            from src.data_fetcher import get_a_share_daily_kline, default_date_range
 
-            start_date, end_date = default_date_range(days)
-            df = get_a_share_daily_kline(symbol, start_date=start_date, end_date=end_date)
+            # 使用模拟数据 (真实数据接口不稳定)
+            from datetime import date as dt_date, timedelta
+
+            end_d = dt_date.today()
+            start_d = end_d - timedelta(days=days)
+            start_str = start_d.strftime("%Y%m%d")
+            end_str = end_d.strftime("%Y%m%d")
+
+            df = generate_fake_kline(
+                symbol=symbol,
+                start_date=start_str,
+                end_date=end_str,
+                days=days,
+            )
 
             if df.empty:
-                logger.warning("K线数据为空: symbol=%s", symbol)
-                st.error(f"无法获取 {symbol} 的数据，请检查股票代码或网络")
+                logger.warning("假K线生成失败: symbol=%s", symbol)
+                st.error(f"无法生成 {symbol} 的模拟数据")
                 db.close()
                 return
 
@@ -203,8 +235,8 @@ def kline_viewer_page():
 
             df = resample_kline(df, period) if period > 1 else df
 
-            st.success(f"获取到 {len(df)} 根K线 (周期: {period}日)")
-            logger.info("K线加载成功: %s, %d 条, period=%d", symbol, len(df), period)
+            st.info(f"📡 模拟数据 · 共 {len(df)} 根K线 (周期: {period}日)")
+            logger.info("假K线加载成功: %s, %d 条, period=%d", symbol, len(df), period)
 
             # 美元转换
             if use_usd:
@@ -238,7 +270,7 @@ def kline_viewer_page():
                 )
                 avail_cols = [c for c in show_cols if c in df.columns]
                 st.dataframe(df[avail_cols].tail(20), use_container_width=True)
-                st.caption("数据来源: efinance (公开数据)")
+                st.caption("⚠️ 数据来源: 模拟生成 (几何布朗运动) —— 仅供界面展示，不反映真实股价")
 
             # 显示当日信号
             if show_fortune:
@@ -255,9 +287,10 @@ def kline_viewer_page():
 
 
 def _get_fortune_dates() -> set:
-    """获取运势宜交易的日期集合"""
+    """获取运势宜交易的日期集合（仅交易日）"""
     signals = DailySignal.select().where(
-        DailySignal.trade_signal == "宜买入"
+        DailySignal.trade_signal == "宜买入",
+        DailySignal.is_trading_day == True,
     )
     return {str(s.date) for s in signals}
 

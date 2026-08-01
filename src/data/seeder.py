@@ -241,6 +241,8 @@ def seed_daily_signals(days: int = 90):
                     "jieqi": s.get("jieqi"),
                     "trade_signal": s["trade_signal"],
                     "recommended_wuxing": rec_str,
+                    "is_trading_day": s.get("is_trading_day", True),
+                    "non_trading_reason": s.get("non_trading_reason"),
                 },
             )
             if created:

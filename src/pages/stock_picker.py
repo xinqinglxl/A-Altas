@@ -9,6 +9,7 @@ from src.data.db import db, UserProfile, StockBasic
 from src.strategy.scorer import get_caishen_ranking, get_usd_price, score_all_stocks
 from src.data.exchange import get_usd_cny_latest
 from src.utils.logger import get_logger
+from src.utils.user_guard import require_user_profile
 
 logger = get_logger(__name__)
 
@@ -19,17 +20,12 @@ def stock_picker_page():
 
     db.connect()
 
-    # 检查是否有用户
-    if "user_id" not in st.session_state:
-        user = UserProfile.select().order_by(UserProfile.id.desc()).first()
-        if user:
-            st.session_state["user_id"] = user.id
-        else:
-            st.warning("请先在首页输入你的生辰八字")
-            db.close()
-            return
+    # 守卫：检查用户八字信息
+    user = require_user_profile("财神选股")
+    if user is None:
+        db.close()
+        return
 
-    user = UserProfile.get_by_id(st.session_state["user_id"])
     logger.info("财神选股页面加载: user=%s", user.name)
 
     with st.sidebar:

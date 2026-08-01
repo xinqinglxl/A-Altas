@@ -9,6 +9,7 @@ from typing import Optional
 from lunar_python import Lunar, Solar
 
 from src.utils.logger import get_logger
+from src.utils.trading_calendar import get_non_trading_reason, is_trading_day
 
 from .bazi import GAN_WUXING, get_day_gan_zhi
 from .wuxing import (
@@ -51,6 +52,12 @@ def get_daily_signal(target_date: Optional[date] = None) -> dict:
     # 择时信号判定
     trade_signal = _judge_trade_signal(day_wuxing, yi, ji)
 
+    # 交易日状态
+    is_trading = is_trading_day(target_date)
+    non_trading_reason = get_non_trading_reason(target_date)
+    if not is_trading:
+        trade_signal = "休市"
+
     # 推荐/回避的五行
     recommended_wx = _recommend_wuxing(day_wuxing)
     avoid_wx = _avoid_wuxing(day_wuxing)
@@ -67,6 +74,8 @@ def get_daily_signal(target_date: Optional[date] = None) -> dict:
         "trade_signal": trade_signal,
         "recommended_wuxing": recommended_wx,
         "avoid_wuxing": avoid_wx,
+        "is_trading_day": is_trading,
+        "non_trading_reason": non_trading_reason,
     }
 
     logger.info(

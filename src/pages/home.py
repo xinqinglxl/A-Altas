@@ -9,6 +9,7 @@ from src.data.db import db, UserProfile
 from src.metaphysics.bazi import calc_bazi, BaziResult
 from src.strategy.scorer import get_caishen_ranking
 from src.utils.logger import get_logger
+from src.utils.user_guard import get_current_user
 
 logger = get_logger(__name__)
 
@@ -129,16 +130,16 @@ def home_page():
         show_bazi_card(st.session_state["user_bazi"])
 
     # 加载已有用户
-    elif UserProfile.select().count() > 0:
-        user = UserProfile.select().order_by(UserProfile.id.desc()).first()
-        logger.info("自动加载已有用户: %s", user.name)
-        bazi = calc_bazi(user.birth_date, user.birth_time, user.is_solar)
-        st.session_state["user_id"] = user.id
-        st.session_state["user_bazi"] = bazi
-        st.success(f"已加载用户: {user.name}")
+    else:
+        user = get_current_user()
+        if user:
+            bazi = calc_bazi(user.birth_date, user.birth_time, user.is_solar)
+            st.session_state["user_id"] = user.id
+            st.session_state["user_bazi"] = bazi
+            st.success(f"已加载用户: {user.name}")
 
-        st.subheader("你的八字命盘")
-        show_bazi_card(bazi)
+            st.subheader("你的八字命盘")
+            show_bazi_card(bazi)
 
     db.close()
 

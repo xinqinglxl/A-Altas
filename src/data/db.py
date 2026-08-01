@@ -144,8 +144,12 @@ class DailySignal(BaseModel):
     jieqi = CharField(max_length=10, null=True)  # 若是节气日则填名称
 
     # 信号
-    trade_signal = CharField(max_length=10, null=True)  # 宜买入/宜观望/忌交易
+    trade_signal = CharField(max_length=10, null=True)  # 宜买入/宜观望/忌交易/休市
     recommended_wuxing = CharField(max_length=20, null=True)  # 推荐五行板块
+
+    # 交易日状态
+    is_trading_day = BooleanField(default=True)  # 是否为A股交易日
+    non_trading_reason = CharField(max_length=50, null=True)  # 非交易日原因
 
     class Meta:
         table_name = "daily_signal"
