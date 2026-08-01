@@ -8,6 +8,10 @@ from typing import Optional
 import akshare as ak
 import pandas as pd
 
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 def get_usd_cny_history(
     start_date: Optional[str] = None,
@@ -19,6 +23,7 @@ def get_usd_cny_history(
     使用 akshare 的 currency_boc_sina 接口
     """
     try:
+        logger.info("获取USD/CNY历史汇率: start=%s, end=%s", start_date, end_date)
         # 使用新浪外汇数据
         df = ak.currency_boc_sina(symbol="美元")
 
@@ -66,9 +71,11 @@ def get_usd_cny_history(
             result = result[result["date"] <= pd.to_datetime(end_date)]
 
         result = result.sort_values("date").reset_index(drop=True)
+        logger.info("获取到 %d 条汇率记录", len(result))
         return result
 
     except Exception:
+        logger.warning("获取USD/CNY汇率失败", exc_info=True)
         return pd.DataFrame()
 
 
@@ -93,7 +100,7 @@ def generate_fake_exchange_rates(
     生成假的汇率数据（当真实数据源不可用时）
     以 7.2 为基准，模拟正常波动
     """
-    import random
+    logger.info("生成假汇率数据: start=%s, days=%d", start_date, days)
 
     random.seed(42)
     results = []

@@ -8,6 +8,9 @@ from datetime import date, datetime
 from src.data.db import db, UserProfile
 from src.metaphysics.bazi import calc_bazi, BaziResult
 from src.strategy.scorer import get_caishen_ranking
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def show_bazi_card(bazi: BaziResult):
@@ -68,6 +71,8 @@ def home_page():
     # ---- 主区域 ----
     if submit:
         hour = int(birth_time.split(":")[0])
+        logger.info("用户提交排盘: name=%s, date=%s, time=%02d:00, solar=%s",
+                     name, birth_date.isoformat(), hour, is_solar)
         try:
             bazi = calc_bazi(
                 birth_date,
@@ -106,13 +111,16 @@ def home_page():
 
             if created:
                 st.success(f"八字排盘已保存 ({name})")
+                logger.info("新用户已创建: %s", name)
             else:
                 st.info(f"档案已存在，已加载 ({name})")
+                logger.info("用户已存在，加载档案: %s", name)
 
             st.subheader("你的八字命盘")
             show_bazi_card(bazi)
 
         except Exception as e:
+            logger.error("排盘失败: %s", e, exc_info=True)
             st.error(f"排盘失败：{e}")
 
     # 如果已有用户，显示八字信息
@@ -123,6 +131,7 @@ def home_page():
     # 加载已有用户
     elif UserProfile.select().count() > 0:
         user = UserProfile.select().order_by(UserProfile.id.desc()).first()
+        logger.info("自动加载已有用户: %s", user.name)
         bazi = calc_bazi(user.birth_date, user.birth_time, user.is_solar)
         st.session_state["user_id"] = user.id
         st.session_state["user_bazi"] = bazi

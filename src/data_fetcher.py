@@ -5,6 +5,10 @@ import efinance as ef
 import pandas as pd
 import requests
 
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 def get_a_share_daily_kline(
     symbol: str,
@@ -19,6 +23,8 @@ def get_a_share_daily_kline(
     """
     for attempt in range(1, max_retries + 1):
         try:
+            logger.debug("获取K线: symbol=%s, start=%s, end=%s, attempt=%d",
+                         symbol, start_date, end_date, attempt)
             kwargs = dict(stock_codes=symbol)
             if start_date:
                 kwargs["beg"] = start_date

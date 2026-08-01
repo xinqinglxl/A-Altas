@@ -8,6 +8,9 @@ from datetime import date
 from src.data.db import db, UserProfile, StockBasic
 from src.strategy.scorer import get_caishen_ranking, get_usd_price, score_all_stocks
 from src.data.exchange import get_usd_cny_latest
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def stock_picker_page():
@@ -27,6 +30,7 @@ def stock_picker_page():
             return
 
     user = UserProfile.get_by_id(st.session_state["user_id"])
+    logger.info("财神选股页面加载: user=%s", user.name)
 
     with st.sidebar:
         st.header("评分参数")
@@ -48,6 +52,7 @@ def stock_picker_page():
     # ---- 主区域 ----
     with st.spinner("正在计算财神指数..."):
         ranking = get_caishen_ranking(user, refresh=refresh)
+    logger.info("财神排行榜加载完成: %d 条结果, refresh=%s", len(ranking), refresh)
 
     if not ranking:
         st.warning("暂无评分数据，请先运行数据初始化。")

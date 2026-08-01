@@ -20,6 +20,9 @@ from src.data.exchange import generate_fake_exchange_rates, get_usd_cny_history
 from src.metaphysics.bazi import BaziResult, calc_bazi, calc_company_bazi
 from src.metaphysics.ganzhi import generate_daily_signals
 from src.metaphysics.wuxing import SECTOR_WUXING_MAP
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def seed_sector_wuxing():
@@ -30,7 +33,7 @@ def seed_sector_wuxing():
                 sector_name=sector,
                 defaults={"wuxing": wuxing},
             )
-    print(f"已填充 {len(SECTOR_WUXING_MAP)} 条板块五行映射")
+    logger.info("已填充 %d 条板块五行映射", len(SECTOR_WUXING_MAP))
 
 
 def seed_exchange_rates():
@@ -38,7 +41,7 @@ def seed_exchange_rates():
     df = get_usd_cny_history()
 
     if df.empty or len(df) < 100:
-        print("真实汇率数据不足，使用模拟数据")
+        logger.info("真实汇率数据不足，使用模拟数据")
         fake_data = generate_fake_exchange_rates(days=400)
         source = "fake"
     else:
@@ -62,7 +65,7 @@ def seed_exchange_rates():
             )
 
     count = ExchangeRate.select().count()
-    print(f"已填充 {count} 条汇率记录 (来源: {source})")
+    logger.info("已填充 %d 条汇率记录 (来源: %s)", count, source)
 
 
 def seed_stocks_enhanced():
@@ -78,7 +81,9 @@ def seed_stocks_enhanced():
         df = ak.index_stock_cons(symbol="000300")
         if df.empty:
             raise ValueError("empty")
+        logger.info("成功获取沪深300成分股数据")
     except Exception:
+        logger.warning("获取沪深300成分股失败，使用预设股票列表")
         # 备用：直接用预设股票列表
         preset = [
             ("000001", "平安银行"), ("000002", "万科A"), ("000858", "五粮液"),
@@ -113,7 +118,7 @@ def seed_stocks_enhanced():
                     ipo_date = datetime.strptime(str(ipo_str), "%Y%m%d").date()
                     data_source = "real"
         except Exception:
-            pass
+            logger.debug("获取股票 %s %s 上市日期失败", code, name)
 
         # 假数据：无真实IPO日期时生成合理假日期
         if not ipo_date:
@@ -146,6 +151,8 @@ def seed_stocks_enhanced():
         # 避免过量请求
         if len(stocks) >= 50:
             break
+
+    logger.debug("准备写入 %d 只股票", len(stocks))
 
     # 写入数据库
     with db.atomic():
@@ -180,7 +187,7 @@ def seed_stocks_enhanced():
                             day_master=bazi.day_master,
                         )
                     except Exception:
-                        pass
+                        logger.warning("公司 %s 成立八字排盘失败", s["code"], exc_info=True)
                 # 上市八字
                 if s["ipo_date"]:
                     try:
@@ -201,11 +208,11 @@ def seed_stocks_enhanced():
                             },
                         )
                     except Exception:
-                        pass
+                        logger.warning("公司 %s 上市八字排盘失败", s["code"], exc_info=True)
 
     real_count = sum(1 for s in stocks if s["data_source"] == "real")
     fake_count = sum(1 for s in stocks if s["data_source"] == "fake")
-    print(f"已填充 {len(stocks)} 只股票 (真实: {real_count}, 部分假数据: {fake_count})")
+    logger.info("已填充 %d 只股票 (真实: %d, 部分假数据: %d)", len(stocks), real_count, fake_count)
 
 
 def seed_daily_signals(days: int = 90):
@@ -238,31 +245,31 @@ def seed_daily_signals(days: int = 90):
             )
             if created:
                 count += 1
-    print(f"已生成 {count} 条每日信号")
+    logger.info("已生成 %d 条每日信号", count)
 
 
 def seed_all():
     """一键初始化所有数据"""
-    print("=" * 50)
-    print("A-ALTAS 数据初始化")
-    print("=" * 50)
+    logger.info("=" * 40)
+    logger.info("A-ALTAS 数据初始化开始")
+    logger.info("=" * 40)
 
     init_db()
-    print("[1/4] 数据库表创建完成")
+    logger.info("[1/4] 数据库表创建完成")
 
     seed_sector_wuxing()
-    print("[2/4] 板块五行映射完成")
+    logger.info("[2/4] 板块五行映射完成")
 
     seed_exchange_rates()
-    print("[3/4] 汇率数据完成")
+    logger.info("[3/4] 汇率数据完成")
 
     seed_stocks_enhanced()
     seed_daily_signals()
-    print("[4/4] 股票数据 & 每日信号完成")
+    logger.info("[4/4] 股票数据 & 每日信号完成")
 
-    print("=" * 50)
-    print("初始化完成！")
-    print("=" * 50)
+    logger.info("=" * 40)
+    logger.info("A-ALTAS 数据初始化完成！")
+    logger.info("=" * 40)
 
 
 if __name__ == "__main__":

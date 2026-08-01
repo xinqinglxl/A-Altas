@@ -12,6 +12,9 @@ from src.metaphysics.wuxing import (
     get_wuxing_avoid_sectors,
     wuxing_color,
 )
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def daily_signal_page():
@@ -60,8 +63,10 @@ def daily_signal_page():
 
     # ---- 主区域 ----
     try:
+        logger.info("获取每日信号: date=%s", selected_date.isoformat())
         signal = get_daily_signal(selected_date)
     except Exception as e:
+        logger.error("获取每日信号失败: date=%s, error=%s", selected_date.isoformat(), e, exc_info=True)
         st.error(f"获取信号失败: {e}")
         db.close()
         return

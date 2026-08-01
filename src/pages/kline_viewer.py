@@ -11,6 +11,9 @@ from datetime import date
 from src.data.db import db, ExchangeRate, UserProfile, DailySignal
 from src.metaphysics.ganzhi import get_daily_signal
 from src.data.exchange import get_usd_cny_latest
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def convert_kline_to_usd(df: pd.DataFrame) -> pd.DataFrame:
@@ -184,12 +187,14 @@ def kline_viewer_page():
 
     with st.spinner(f"正在加载 {symbol} K线数据..."):
         try:
+            logger.info("K线加载: symbol=%s, period=%d, days=%d, usd=%s", symbol, period, days, use_usd)
             from src.data_fetcher import get_a_share_daily_kline, default_date_range
 
             start_date, end_date = default_date_range(days)
             df = get_a_share_daily_kline(symbol, start_date=start_date, end_date=end_date)
 
             if df.empty:
+                logger.warning("K线数据为空: symbol=%s", symbol)
                 st.error(f"无法获取 {symbol} 的数据，请检查股票代码或网络")
                 db.close()
                 return
@@ -199,6 +204,7 @@ def kline_viewer_page():
             df = resample_kline(df, period) if period > 1 else df
 
             st.success(f"获取到 {len(df)} 根K线 (周期: {period}日)")
+            logger.info("K线加载成功: %s, %d 条, period=%d", symbol, len(df), period)
 
             # 美元转换
             if use_usd:
@@ -242,6 +248,7 @@ def kline_viewer_page():
                     st.markdown(f"交易信号: **{signal['trade_signal']}**")
 
         except Exception as e:
+            logger.error("K线加载失败: symbol=%s, error=%s", symbol, e, exc_info=True)
             st.error(f"加载失败: {e}")
 
     db.close()

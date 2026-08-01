@@ -9,6 +9,10 @@ from typing import Optional
 
 from lunar_python import Lunar, Solar
 
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 # 天干五行映射
 GAN_WUXING = {
@@ -146,6 +150,10 @@ def calc_bazi(
         BaziResult 八字结果
     """
     hour = int(birth_time.split(":")[0])
+    logger.debug(
+        "八字排盘开始: date=%s, time=%s, is_solar=%s",
+        birth_date.isoformat(), birth_time, is_solar,
+    )
 
     if is_solar:
         solar = Solar.fromYmdHms(birth_date.year, birth_date.month, birth_date.day, hour, 0, 0)
@@ -175,6 +183,10 @@ def calc_bazi(
     result.xi_shen = xi_shen
     result.ji_shen = ji_shen
 
+    logger.info(
+        "八字排盘完成: 日主=%s, 喜用神=%s, 忌神=%s",
+        result.day_master, xi_shen, ji_shen,
+    )
     return result
 
 
@@ -204,6 +216,7 @@ def _calc_xi_ji_shen(bazi: BaziResult) -> tuple[list[str], list[str]]:
     # 最强的 2 个为忌神
     ji_shen = [wx for wx, cnt in sorted_wx[::-1] if cnt >= 3]
 
+    logger.debug("喜用神计算: 分布=%s → 喜神=%s, 忌神=%s", dict(sorted_wx), xi_shen, ji_shen)
     return xi_shen, ji_shen
 
 
@@ -249,7 +262,12 @@ def bazi_compatibility(user_bazi: BaziResult, target_bazi: BaziResult) -> float:
     if overlap:
         score += len(overlap) * 5  # 我的喜神正好是TA的忌神方向上的互补
 
-    return max(0, min(100, score))
+    final_score = max(0, min(100, score))
+    logger.debug(
+        "八字合盘: 用户日主=%s, 目标日主=%s, 结果=%.1f",
+        user_bazi.day_master, target_bazi.day_master, final_score,
+    )
+    return final_score
 
 
 def calc_company_bazi(founded_date: date) -> BaziResult:

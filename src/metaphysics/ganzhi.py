@@ -8,6 +8,8 @@ from typing import Optional
 
 from lunar_python import Lunar, Solar
 
+from src.utils.logger import get_logger
+
 from .bazi import GAN_WUXING, get_day_gan_zhi
 from .wuxing import (
     WUXING_KE,
@@ -16,6 +18,8 @@ from .wuxing import (
     get_wuxing_compatible_sectors,
     get_wuxing_avoid_sectors,
 )
+
+logger = get_logger(__name__)
 
 
 def get_daily_signal(target_date: Optional[date] = None) -> dict:
@@ -51,7 +55,7 @@ def get_daily_signal(target_date: Optional[date] = None) -> dict:
     recommended_wx = _recommend_wuxing(day_wuxing)
     avoid_wx = _avoid_wuxing(day_wuxing)
 
-    return {
+    result = {
         "date": target_date.isoformat(),
         "day_gan": day_gan,
         "day_zhi": day_zhi,
@@ -64,6 +68,13 @@ def get_daily_signal(target_date: Optional[date] = None) -> dict:
         "recommended_wuxing": recommended_wx,
         "avoid_wuxing": avoid_wx,
     }
+
+    logger.info(
+        "每日信号: %s | %s%s日 (%s) | 信号=%s | 宜=%s",
+        target_date.isoformat(), day_gan, day_zhi, day_wuxing,
+        trade_signal, recommended_wx,
+    )
+    return result
 
 
 def _judge_trade_signal(day_wuxing: str, yi: list[str], ji: list[str]) -> str:
@@ -166,6 +177,8 @@ def get_jieqi_rotation(target_date: Optional[date] = None) -> Optional[dict]:
     if not jieqi:
         return None
 
+    logger.info("节气轮动: %s → 推荐五行=%s", jieqi, [])
+
     # 节气板块轮动映射
     jieqi_sector_map = {
         "立春": ["木", "火"],
@@ -211,6 +224,7 @@ def generate_daily_signals(
     start_date: date, days: int = 30
 ) -> list[dict]:
     """批量生成每日信号（用于日历热力图）"""
+    logger.info("批量生成每日信号: start=%s, days=%d", start_date.isoformat(), days)
     signals = []
     for i in range(days):
         d = start_date + timedelta(days=i)
@@ -218,7 +232,9 @@ def generate_daily_signals(
             signal = get_daily_signal(d)
             signals.append(signal)
         except Exception:
+            logger.warning("生成信号失败: %s", d.isoformat(), exc_info=True)
             continue
+    logger.info("每日信号生成完成: 成功%d条", len(signals))
     return signals
 
 

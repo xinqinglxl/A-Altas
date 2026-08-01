@@ -18,8 +18,14 @@ from peewee import (
     TextField,
 )
 
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "data", "a_altas.db")
 db = SqliteDatabase(DB_PATH, pragmas={"foreign_keys": 1, "journal_mode": "wal"})
+
+logger.debug("数据库路径: %s", DB_PATH)
 
 
 class BaseModel(Model):
@@ -167,6 +173,7 @@ class StockScore(BaseModel):
 def init_db():
     """初始化数据库，创建所有表"""
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    logger.info("初始化数据库: %s", DB_PATH)
     db.connect()
     db.create_tables(
         [
@@ -181,6 +188,7 @@ def init_db():
         safe=True,
     )
     db.close()
+    logger.info("数据库表创建完成")
 
 
 if __name__ == "__main__":

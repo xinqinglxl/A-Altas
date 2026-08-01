@@ -18,6 +18,9 @@ from src.data.db import (
 from src.metaphysics.bazi import GAN_WUXING, BaziResult, bazi_compatibility, calc_bazi
 from src.metaphysics.ganzhi import get_daily_signal, get_ganzhi_timing_score
 from src.metaphysics.wuxing import wuxing_match_score
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def _user_bazi_from_profile(user: UserProfile) -> BaziResult:
@@ -81,6 +84,7 @@ def score_stock(
     if target_date is None:
         target_date = date.today()
 
+    logger.debug("评分开始: stock=%s(%s), user=%s", stock.code, stock.name, user.name)
     scores = {}
     notes = []
 
@@ -128,6 +132,12 @@ def score_stock(
         "data_source": stock.data_source,
     }
 
+    logger.debug(
+        "评分完成: %s(%s) → 综合=%.1f (八字=%.1f, 五行=%.1f, 择时=%.1f)",
+        stock.code, stock.name,
+        result["composite_score"], result["bazi_score"],
+        result["wuxing_score"], result["timing_score"],
+    )
     return result
 
 
@@ -140,15 +150,21 @@ def score_all_stocks(
     对数据库中的所有股票进行评分并排序
     """
     stocks = StockBasic.select()
+    logger.info("全量评分开始: 共 %d 只股票", stocks.count())
     results = []
     for stock in stocks:
         try:
             s = score_stock(stock, user, target_date)
             results.append(s)
         except Exception:
+            logger.warning("股票 %s 评分失败", stock.code, exc_info=True)
             continue
 
     results.sort(key=lambda x: x["composite_score"], reverse=True)
+    logger.info("全量评分完成: top_n=%d, 最高分=%.1f (%s)",
+                min(top_n, len(results)),
+                results[0]["composite_score"] if results else 0,
+                results[0]["stock_name"] if results else "")
     return results[:top_n]
 
 
@@ -195,6 +211,7 @@ def get_caishen_ranking(
         ).order_by(StockScore.composite_score.desc())
 
         if cached.count() > 0:
+            logger.info("使用缓存评分: user=%s, date=%s, count=%d", user.name, target_date.isoformat(), cached.count())
             results = []
             for c in cached:
                 results.append({
@@ -210,6 +227,7 @@ def get_caishen_ranking(
             return results
 
     # 重新计算
+    logger.info("重新计算评分: user=%s, date=%s", user.name, target_date.isoformat())
     results = score_all_stocks(user, target_date)
     for r in results:
         try:
