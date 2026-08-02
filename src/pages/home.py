@@ -10,6 +10,7 @@ from src.metaphysics.bazi import calc_bazi, BaziResult
 from src.strategy.scorer import get_caishen_ranking
 from src.utils.logger import get_logger
 from src.utils.user_guard import get_current_user
+from src.components.user_header import render_user_header
 
 logger = get_logger(__name__)
 
@@ -37,6 +38,9 @@ def home_page():
     st.caption("输入你的生辰，开始玄学选股之旅")
 
     db.connect()
+
+    # 顶部用户 header — 展示已登录用户信息和运势
+    render_user_header()
 
     # ---- 侧边栏 ----
     with st.sidebar:

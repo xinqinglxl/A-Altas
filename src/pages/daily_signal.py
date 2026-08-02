@@ -14,6 +14,7 @@ from src.metaphysics.wuxing import (
 )
 from src.utils.logger import get_logger
 from src.utils.user_guard import get_current_user
+from src.components.user_header import render_user_header
 
 logger = get_logger(__name__)
 
@@ -23,6 +24,9 @@ def daily_signal_page():
     st.caption("天干地支择时 · 黄历宜忌 · 节气轮动")
 
     db.connect()
+
+    # 顶部用户 header
+    render_user_header()
 
     # 获取当前用户（每日信号页用户信息为可选，但用户专属建议需要）
     user = get_current_user()
@@ -116,10 +120,10 @@ def daily_signal_page():
     avoid = signal.get("avoid_wuxing", [])
 
     col1, col2 = st.columns(2)
+    rec_sectors = []
     with col1:
         st.markdown("**推荐关注**")
         if rec:
-            rec_sectors = []
             for wx in rec:
                 rec_sectors.extend(get_wuxing_compatible_sectors([wx]))
             rec_sectors = list(set(rec_sectors))
@@ -196,3 +200,7 @@ def daily_signal_page():
                 st.markdown(f"{emoji} {s_signal}")
 
     db.close()
+
+
+if __name__ == "__main__":
+    daily_signal_page()

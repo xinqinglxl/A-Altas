@@ -22,7 +22,10 @@ env/
 
 # 数据库文件
 data/*.db
+data/*.db-shm
+data/*.db-wal
 data/*.log
+data/*.log.*
 
 # WorkBuddy 工作区
 .workbuddy/

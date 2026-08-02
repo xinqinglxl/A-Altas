@@ -15,6 +15,7 @@ from src.data.exchange import get_usd_cny_latest
 from src.utils.logger import get_logger
 from src.utils.trading_calendar import get_non_trading_reason, get_recent_trading_day, is_trading_day
 from src.utils.user_guard import get_current_user
+from src.components.user_header import render_user_header
 
 logger = get_logger(__name__)
 
@@ -152,6 +153,9 @@ def kline_viewer_page():
     st.caption("原始K线 · 美元计价 · 运势标注")
 
     db.connect()
+
+    # 顶部用户 header
+    render_user_header()
 
     # 顶部交易日状态提示
     today = date.today()

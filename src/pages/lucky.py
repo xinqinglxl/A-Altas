@@ -23,6 +23,7 @@ from src.metaphysics.fortune import (
 from src.metaphysics.wuxing import wuxing_color
 from src.utils.logger import get_logger
 from src.utils.user_guard import require_user_bazi, get_current_user
+from src.components.user_header import render_user_header
 
 logger = get_logger(__name__)
 
@@ -32,6 +33,9 @@ def lucky_page():
     st.caption("幸运数字 · 幸运颜色 · 幸运方位 · 幸运日 · 个人当日运势")
 
     db.connect()
+
+    # 顶部用户 header
+    render_user_header()
 
     # 守卫：检查用户八字信息
     bazi = require_user_bazi("幸运运势")

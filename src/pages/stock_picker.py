@@ -10,6 +10,7 @@ from src.strategy.scorer import get_caishen_ranking, get_usd_price, score_all_st
 from src.data.exchange import get_usd_cny_latest
 from src.utils.logger import get_logger
 from src.utils.user_guard import require_user_profile
+from src.components.user_header import render_user_header
 
 logger = get_logger(__name__)
 
@@ -19,6 +20,9 @@ def stock_picker_page():
     st.caption("基于八字合盘 + 五行匹配 + 天干择时的综合推荐")
 
     db.connect()
+
+    # 顶部用户 header
+    render_user_header()
 
     # 守卫：检查用户八字信息
     user = require_user_profile("财神选股")
@@ -120,3 +124,7 @@ def stock_picker_page():
             )
 
     db.close()
+
+
+if __name__ == "__main__":
+    stock_picker_page()
