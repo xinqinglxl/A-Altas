@@ -13,8 +13,11 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# 页面定义
+# 页面定义（第一个分组的第一页为默认首页）
 pages = {
+    "自选": [
+        st.Page("src/pages/watchlist.py", title="自选股", icon="⭐"),
+    ],
     "玄学量化": [
         st.Page("src/pages/home.py", title="八字排盘", icon="🔮"),
         st.Page("src/pages/lucky.py", title="幸运运势", icon="🍀"),

@@ -174,6 +174,19 @@ class StockScore(BaseModel):
         indexes = ((("stock", "user", "calc_date"), True),)
 
 
+class Watchlist(BaseModel):
+    """用户自选股"""
+
+    user = ForeignKeyField(UserProfile, backref="watchlist")
+    stock = ForeignKeyField(StockBasic, backref="watchers")
+    added_at = DateTimeField(default=datetime.now)
+    note = CharField(max_length=100, null=True)  # 备注
+
+    class Meta:
+        table_name = "watchlist"
+        indexes = ((("user", "stock"), True),)  # 同一用户不能重复添加同一股票
+
+
 def init_db():
     """初始化数据库，创建所有表"""
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -188,6 +201,7 @@ def init_db():
             ExchangeRate,
             DailySignal,
             StockScore,
+            Watchlist,
         ],
         safe=True,
     )
