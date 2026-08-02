@@ -8,7 +8,7 @@ import pandas as pd
 import streamlit as st
 from datetime import date
 
-from src.data.db import db, ExchangeRate, UserProfile, DailySignal
+from src.data.db import db, ExchangeRate, UserProfile, DailySignal, StockBasic, Watchlist
 from src.data.kline_real import get_kline
 from src.metaphysics.ganzhi import get_daily_signal
 from src.data.exchange import get_usd_cny_latest
@@ -157,6 +157,11 @@ def kline_viewer_page():
     # 顶部用户 header
     render_user_header()
 
+    # ── 读取从其他页面传入的股票代码 ──
+    auto_stock = st.session_state.pop("kline_stock", None) or st.query_params.get("stock", "")
+    auto_load = bool(auto_stock)
+    default_symbol = auto_stock if auto_stock else "000001"
+
     # 顶部交易日状态提示
     today = date.today()
     today_reason = get_non_trading_reason(today)
@@ -174,7 +179,7 @@ def kline_viewer_page():
         st.header("图表配置")
 
         with st.form("kline_config"):
-            symbol = st.text_input("股票代码", value="000001")
+            symbol = st.text_input("股票代码", value=default_symbol)
             use_usd = st.checkbox("美元计价 (USD)", value=False)
 
             col1, col2 = st.columns(2)
@@ -196,6 +201,29 @@ def kline_viewer_page():
 
             search = st.form_submit_button("加载K线", type="primary", use_container_width=True)
 
+        # ── 自选股切换按钮（表单外，独立响应） ──
+        user = get_current_user()
+        if user:
+            try:
+                stock_obj = StockBasic.get_or_none(StockBasic.code == default_symbol)
+                if stock_obj:
+                    watched = Watchlist.get_or_none(
+                        Watchlist.user == user,
+                        Watchlist.stock == stock_obj,
+                    )
+                    if watched:
+                        if st.button("⭐ 已自选（点击移除）", key="wl-remove", use_container_width=True):
+                            watched.delete_instance()
+                            st.success(f"已从自选移除 {default_symbol}")
+                            st.rerun()
+                    else:
+                        if st.button("☆ 加入自选", key="wl-add", type="secondary", use_container_width=True):
+                            Watchlist.create(user=user, stock=stock_obj)
+                            st.success(f"已添加 {default_symbol} {stock_obj.name} 到自选")
+                            st.rerun()
+            except Exception:
+                pass
+
         # 汇率信息（独立于表单，实时展示）
         rate = get_usd_cny_latest()
         if rate:
@@ -205,7 +233,8 @@ def kline_viewer_page():
         st.caption("K线数据优先使用真实接口 (Baostock/新浪/腾讯)，全部失败时回退模拟数据。")
 
     # ---- 主区域 ----
-    if not search:
+    should_load = search or auto_load
+    if not should_load:
         st.info("在左侧面板输入股票代码，点击【加载K线】开始")
         db.close()
         return

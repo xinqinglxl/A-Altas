@@ -78,6 +78,7 @@ def stock_picker_page():
 
     # 构建表格数据
     table_data = []
+    row_codes = []  # 记录每行的股票代码（用于行点击导航）
     for i, r in enumerate(ranking, 1):
         fake_flag = "假" if r["data_source"] == "fake" else "真"
         table_data.append({
@@ -90,8 +91,9 @@ def stock_picker_page():
             "五行匹配": f"{r['wuxing_score']:.1f}",
             "天干择时": f"{r['timing_score']:.1f}",
         })
+        row_codes.append(r["stock_code"])
 
-    st.dataframe(
+    sel = st.dataframe(
         table_data,
         use_container_width=True,
         hide_index=True,
@@ -103,7 +105,18 @@ def stock_picker_page():
             "五行匹配": st.column_config.TextColumn(width="small"),
             "天干择时": st.column_config.TextColumn(width="small"),
         },
+        on_select="rerun",
+        selection_mode="single-row",
+        key="sp-table",
     )
+
+    # 行点击 → 跳转K线
+    if sel is not None and hasattr(sel, "selection") and sel.selection.get("rows"):
+        row_idx = sel.selection["rows"][0]
+        if row_idx < len(row_codes):
+            st.session_state["kline_stock"] = row_codes[row_idx]
+            st.session_state["sp-table"] = {"selection": {"rows": []}}
+            st.switch_page("src/pages/kline_viewer.py")
 
     # 详情展开
     st.divider()
@@ -115,13 +128,18 @@ def stock_picker_page():
             f"| 财神指数: {r['composite_score']:.1f}"
             f"{' [假数据]' if r['data_source'] == 'fake' else ''}"
         ):
-            cols = st.columns(3)
+            cols = st.columns([2, 2, 2, 1])
             with cols[0]:
                 st.metric("八字合盘", f"{r['bazi_score']:.1f} / 100")
             with cols[1]:
                 st.metric("五行匹配", f"{r['wuxing_score']:.1f} / 100")
             with cols[2]:
                 st.metric("天干择时", f"{r['timing_score']:.1f} / 100")
+            with cols[3]:
+                st.write("")
+                if st.button("📈 K线", key=f"sp-kline-{r['stock_code']}", help="查看K线"):
+                    st.session_state["kline_stock"] = r["stock_code"]
+                    st.switch_page("src/pages/kline_viewer.py")
 
             st.markdown(f"**点评**: {r['summary']}")
 

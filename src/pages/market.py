@@ -160,7 +160,7 @@ def market_page():
         "_pct_val": None,
     }
 
-    st.dataframe(
+    sel = st.dataframe(
         df,
         column_config=col_config,
         column_order=[
@@ -170,7 +170,19 @@ def market_page():
         hide_index=True,
         use_container_width=True,
         height=max(38 * (len(rows) + 1), 300),
+        on_select="rerun",
+        selection_mode="single-row",
+        key="mkt-table",
     )
+
+    # 行点击 → 跳转K线
+    if sel is not None and hasattr(sel, "selection") and sel.selection.get("rows"):
+        row_idx = sel.selection["rows"][0]
+        if row_idx < len(rows):
+            code = rows[row_idx]["代码"]
+            st.session_state["kline_stock"] = code
+            st.session_state["mkt-table"] = {"selection": {"rows": []}}
+            st.switch_page("src/pages/kline_viewer.py")
 
     # ── 数据来源说明 ──
     sources = set(r.get("source", "unknown") for r in results)

@@ -265,15 +265,27 @@ def watchlist_page():
         "_watch_id": st.column_config.NumberColumn("", width=None),
     }
 
-    # 展示可排序表格
-    st.dataframe(
+    # 展示可排序表格（行点击跳转K线）
+    sel = st.dataframe(
         df,
         column_config=col_config,
         column_order=["代码", "名称", "最新价", "涨跌幅", "五行", "评分"],
         hide_index=True,
         use_container_width=True,
         height=max(38 * (len(rows) + 1), 200),
+        on_select="rerun",
+        selection_mode="single-row",
+        key="wl-table",
     )
+
+    # 行点击 → 跳转K线页面
+    if sel is not None and hasattr(sel, "selection") and sel.selection.get("rows"):
+        row_idx = sel.selection["rows"][0]
+        if row_idx < len(rows):
+            code = rows[row_idx]["代码"]
+            st.session_state["kline_stock"] = code
+            st.session_state["wl-table"] = {"selection": {"rows": []}}
+            st.switch_page("src/pages/kline_viewer.py")
 
     # ── 操作按钮 ──
     st.divider()
