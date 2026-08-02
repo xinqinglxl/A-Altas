@@ -32,7 +32,7 @@ def lucky_page():
     st.title("幸运运势")
     st.caption("幸运数字 · 幸运颜色 · 幸运方位 · 幸运日 · 个人当日运势")
 
-    db.connect()
+    db.connect(reuse_if_open=True)
 
     # 顶部用户 header
     render_user_header()

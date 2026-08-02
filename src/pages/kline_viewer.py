@@ -152,7 +152,7 @@ def kline_viewer_page():
     st.title("K线看盘")
     st.caption("原始K线 · 美元计价 · 运势标注")
 
-    db.connect()
+    db.connect(reuse_if_open=True)
 
     # 顶部用户 header
     render_user_header()

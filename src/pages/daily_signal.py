@@ -23,7 +23,7 @@ def daily_signal_page():
     st.title("每日玄学信号")
     st.caption("天干地支择时 · 黄历宜忌 · 节气轮动")
 
-    db.connect()
+    db.connect(reuse_if_open=True)
 
     # 顶部用户 header
     render_user_header()

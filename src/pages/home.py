@@ -37,7 +37,7 @@ def home_page():
     st.title("A-ALTAS 玄学量化")
     st.caption("输入你的生辰，开始玄学选股之旅")
 
-    db.connect()
+    db.connect(reuse_if_open=True)
 
     # 顶部用户 header — 展示已登录用户信息和运势
     render_user_header()

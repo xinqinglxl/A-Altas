@@ -19,7 +19,7 @@ def stock_picker_page():
     st.title("财神选股")
     st.caption("基于八字合盘 + 五行匹配 + 天干择时的综合推荐")
 
-    db.connect()
+    db.connect(reuse_if_open=True)
 
     # 顶部用户 header
     render_user_header()

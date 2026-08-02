@@ -18,7 +18,7 @@ def user_profile_page():
     st.title("用户管理")
     st.caption("查看和编辑你的八字档案")
 
-    db.connect()
+    db.connect(reuse_if_open=True)
 
     user = get_current_user()
     if user is None:

@@ -263,7 +263,7 @@ def get_usd_price(
 
 
 if __name__ == "__main__":
-    db.connect()
+    db.connect(reuse_if_open=True)
 
     # 测试：创建一个测试用户
     from src.metaphysics.bazi import calc_bazi
