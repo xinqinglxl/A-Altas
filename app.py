@@ -18,6 +18,9 @@ pages = {
     "自选": [
         st.Page("src/pages/watchlist.py", title="自选股", icon="⭐"),
     ],
+    "行情": [
+        st.Page("src/pages/market.py", title="行情扫描", icon="🔎"),
+    ],
     "玄学量化": [
         st.Page("src/pages/home.py", title="八字排盘", icon="🔮"),
         st.Page("src/pages/lucky.py", title="幸运运势", icon="🍀"),

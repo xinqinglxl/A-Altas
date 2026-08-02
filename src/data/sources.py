@@ -239,6 +239,8 @@ def baostock_get_kline(
                 "close": float(row[5]) if row[5] else 0,
                 "volume": float(row[6]) if row[6] else 0,
                 "amount": float(row[7]) if row[7] else 0,
+                "turn": float(row[8]) if row[8] else 0,
+                "pct_chg": float(row[9]) if row[9] else 0,
             })
 
         df = pd.DataFrame(data_list)
