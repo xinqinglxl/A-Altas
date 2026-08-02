@@ -32,11 +32,8 @@ def stock_picker_page():
 
     logger.info("财神选股页面加载: user=%s", user.name)
 
+    # ---- 侧边栏：用户信息 ----
     with st.sidebar:
-        st.header("评分参数")
-        refresh = st.button("重新计算评分", type="primary", use_container_width=True)
-
-        st.divider()
         st.subheader("当前用户")
         st.markdown(f"**{user.name}**")
         st.markdown(f"日主: **{user.day_master}**")
@@ -49,23 +46,35 @@ def stock_picker_page():
         st.markdown("**图例**")
         st.markdown("🔴 假数据 - 数据为模拟生成")
 
-    # ---- 主区域 ----
-    with st.spinner("正在计算财神指数..."):
-        ranking = get_caishen_ranking(user, refresh=refresh)
-    logger.info("财神排行榜加载完成: %d 条结果, refresh=%s", len(ranking), refresh)
+    # ---- 主区域顶部工具栏：刷新按钮靠右 ----
+    col_left, col_right = st.columns([4, 1])
+    with col_left:
+        st.subheader(f"财神排行榜")
+        st.caption(f"评分日期: {date.today()}")
+    with col_right:
+        st.write("")  # 占位对齐
+        refresh = st.button("🔄 重新计算", type="primary", use_container_width=True, help="清除缓存并重新评分")
+
+    # ---- 主区域：排行榜 ----
+    ranking = []
+    try:
+        with st.spinner("正在计算财神指数..."):
+            ranking = get_caishen_ranking(user, refresh=refresh)
+        logger.info("财神排行榜加载完成: %d 条结果, refresh=%s", len(ranking), refresh)
+    except Exception as e:
+        logger.error("财神排行榜加载失败: %s", e, exc_info=True)
+        st.error(f"加载失败：{e}")
 
     if not ranking:
-        st.warning("暂无评分数据，请先运行数据初始化。")
+        st.warning("暂无评分数据。点击上方「重新计算」按钮生成排行榜。")
+        if st.button("🔄 立即计算", type="primary"):
+            st.rerun()
         db.close()
         return
 
     # 汇率
     rate = get_usd_cny_latest() or 7.2
     st.caption(f"当前参考汇率: 1 USD = {rate:.4f} CNY")
-
-    # 排行榜表格
-    st.subheader(f"财神排行榜 TOP {len(ranking)}")
-    st.caption(f"评分日期: {date.today()}")
 
     # 构建表格数据
     table_data = []
@@ -100,9 +109,9 @@ def stock_picker_page():
     st.divider()
     st.subheader("TOP 5 详细评分")
 
-    for r in ranking[:5]:
+    for idx, r in enumerate(ranking[:5]):
         with st.expander(
-            f"#{ranking.index(r)+1} {r['stock_code']} {r['stock_name']} "
+            f"#{idx+1} {r['stock_code']} {r['stock_name']} "
             f"| 财神指数: {r['composite_score']:.1f}"
             f"{' [假数据]' if r['data_source'] == 'fake' else ''}"
         ):

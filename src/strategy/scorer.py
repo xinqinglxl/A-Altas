@@ -175,17 +175,15 @@ def save_score_cache(
 ):
     """保存评分到缓存表"""
     try:
-        StockScore.get_or_create(
+        StockScore.create(
             stock=stock,
             user=user,
             calc_date=date.today(),
-            defaults={
-                "bazi_score": scores["bazi_score"],
-                "wuxing_score": scores["wuxing_score"],
-                "timing_score": scores["timing_score"],
-                "composite_score": scores["composite_score"],
-                "summary": scores["summary"],
-            },
+            bazi_score=scores["bazi_score"],
+            wuxing_score=scores["wuxing_score"],
+            timing_score=scores["timing_score"],
+            composite_score=scores["composite_score"],
+            summary=scores["summary"],
         )
     except Exception:
         pass
@@ -199,10 +197,18 @@ def get_caishen_ranking(
     """
     获取财神排行榜
 
-    优先读取缓存，refresh=True 时重新计算
+    优先读取缓存，refresh=True 时清除旧缓存并重新计算
     """
     if target_date is None:
         target_date = date.today()
+
+    # refresh=True 时先删除旧缓存
+    if refresh:
+        StockScore.delete().where(
+            StockScore.user == user,
+            StockScore.calc_date == target_date,
+        ).execute()
+        logger.info("已清除旧缓存: user=%s, date=%s", user.name, target_date.isoformat())
 
     if not refresh:
         cached = StockScore.select().where(

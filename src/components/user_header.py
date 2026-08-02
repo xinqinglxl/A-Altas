@@ -18,6 +18,33 @@ logger = get_logger(__name__)
 # ── CSS：固定定位 + 展开面板 ──
 _CARD_CSS = """
 <style>
+/* === 全屏透明遮罩（面板展开时）=== */
+.st-key-user-overlay {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 99989 !important;
+    background: transparent !important;
+}
+.st-key-user-overlay button {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: transparent !important;
+    border: none !important;
+    opacity: 0 !important;
+    cursor: default !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+.st-key-user-overlay > div {
+    background: transparent !important;
+}
+
 /* === 主按钮容器（固定到顶部栏下方右侧）=== */
 .st-key-user-main {
     position: fixed !important;
@@ -174,6 +201,12 @@ def render_user_header():
 
     # ── 展开详情面板 ──
     if st.session_state["user_card_open"]:
+        # 全屏透明遮罩：点击任意空白处收起
+        with st.container(key="user-overlay"):
+            if st.button("", key="user-overlay-btn", use_container_width=True):
+                st.session_state["user_card_open"] = False
+                st.rerun()
+
         with st.container(key="user-panel"):
             _render_panel_content(user, bazi, score, weather_text)
 
