@@ -131,7 +131,7 @@ def _render_personal_fortune(bazi: BaziResult, target_date: date):
         st.caption(fortune.relation_to_day_master)
 
     with cols[3]:
-        st.metric("幸运数字", " ".join(str(n) for n in fortune.lucky_numbers[:4]))
+        st.metric("幸运数字", "、".join(str(n) for n in fortune.lucky_numbers[:4]))
 
     # 建议
     st.info(fortune.advice)

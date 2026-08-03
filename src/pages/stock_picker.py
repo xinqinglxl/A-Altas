@@ -118,6 +118,22 @@ def stock_picker_page():
             st.session_state["sp-table"] = {"selection": {"rows": []}}
             st.switch_page("src/pages/kline_viewer.py")
 
+    # ── 股票 K线快捷跳转 ──
+    col_pick, col_go = st.columns([3, 1])
+    with col_pick:
+        pick_code = st.selectbox(
+            "快速跳转K线",
+            options=[f"{r['stock_code']} {r['stock_name']}" for r in ranking],
+            key="sp-quick-pick",
+            label_visibility="collapsed",
+            placeholder="选择股票跳转K线...",
+        )
+    with col_go:
+        if st.button("📈 查看K线", key="sp-quick-go", use_container_width=True, type="secondary"):
+            code = pick_code.split(" ")[0] if pick_code else row_codes[0]
+            st.session_state["kline_stock"] = code
+            st.switch_page("src/pages/kline_viewer.py")
+
     # 详情展开
     st.divider()
     st.subheader("TOP 5 详细评分")

@@ -5,23 +5,15 @@
 
 from datetime import date
 
-import pandas as pd
 import streamlit as st
 
 from src.components.user_header import render_user_header
 from src.data.db import db, StockBasic, StockScore, Watchlist
 from src.data.sources import get_realtime_quotes_batch
-from src.metaphysics.wuxing import wuxing_color
 from src.utils.logger import get_logger
 from src.utils.user_guard import get_current_user
 
 logger = get_logger(__name__)
-
-# 五行 → 颜色映射（用于标签）
-WUXING_TAG_COLORS = {
-    "金": "#f0c040", "木": "#4caf50", "水": "#2196f3",
-    "火": "#f44336", "土": "#8d6e63",
-}
 
 
 def _load_watchlist(user) -> list[dict]:
@@ -196,31 +188,33 @@ def watchlist_page():
                     else:
                         st.info("所选股票已在自选列表中")
 
-    # ── 自选股列表 ──
+    # ── 自选股列表（每行带 K线按钮）──
     if not watchlist_data:
         st.info("还没有自选股，点击上方「添加自选股」开始关注")
         db.close()
         return
 
-    # 构建表格
-    rows = []
+    # 表头
+    h_cols = st.columns([1, 2, 1, 1, 1, 1, 1])
+    headers = ["代码", "名称", "最新价", "涨跌幅", "五行", "评分", "操作"]
+    for i, h in enumerate(headers):
+        with h_cols[i]:
+            st.caption(f"**{h}**")
+
+    st.divider()
+
     for w in watchlist_data:
-        # 涨跌图标
+        row_cols = st.columns([1, 2, 1, 1, 1, 1, 1])
+
+        # 涨跌
         pct = w["change_pct"]
         if pct is not None:
-            if pct > 0:
-                change_str = f"🔴 +{pct:.2f}%"
-            elif pct < 0:
-                change_str = f"🟢 {pct:.2f}%"
-            else:
-                change_str = "➖ 0.00%"
+            change_str = f"🔴 +{pct:.2f}%" if pct > 0 else (f"🟢 {pct:.2f}%" if pct < 0 else "➖ 0.00%")
         else:
             change_str = "—"
 
-        # 价格
         price_str = f"¥{w['price']:.2f}" if w["price"] else "—"
 
-        # 评分
         score = w["score"]
         if score is not None:
             if score >= 80:
@@ -234,86 +228,38 @@ def watchlist_page():
         else:
             score_str = "—"
 
-        # 五行标签颜色
-        wx = w["wuxing"]
-        wx_color = WUXING_TAG_COLORS.get(wx, "#888")
+        wx = w["wuxing"] or "-"
 
-        rows.append({
-            "代码": w["code"],
-            "名称": w["name"],
-            "最新价": price_str,
-            "涨跌幅": change_str,
-            "五行": wx,
-            "评分": score_str,
-            "_score_val": score or 0,
-            "_pct_val": pct,
-            "_watch_id": w["watch_id"],
-        })
-
-    df = pd.DataFrame(rows)
-
-    # 列配置
-    col_config = {
-        "代码": st.column_config.TextColumn("代码", width="small"),
-        "名称": st.column_config.TextColumn("名称", width="small"),
-        "最新价": st.column_config.TextColumn("最新价", width="small"),
-        "涨跌幅": st.column_config.TextColumn("涨跌幅", width="small"),
-        "五行": st.column_config.TextColumn("五行", width="small"),
-        "评分": st.column_config.TextColumn("玄学评分", width="small"),
-        "_score_val": st.column_config.NumberColumn("", width=None),
-        "_pct_val": st.column_config.NumberColumn("", width=None),
-        "_watch_id": st.column_config.NumberColumn("", width=None),
-    }
-
-    # 展示可排序表格（行点击跳转K线）
-    sel = st.dataframe(
-        df,
-        column_config=col_config,
-        column_order=["代码", "名称", "最新价", "涨跌幅", "五行", "评分"],
-        hide_index=True,
-        use_container_width=True,
-        height=max(38 * (len(rows) + 1), 200),
-        on_select="rerun",
-        selection_mode="single-row",
-        key="wl-table",
-    )
-
-    # 行点击 → 跳转K线页面
-    if sel is not None and hasattr(sel, "selection") and sel.selection.get("rows"):
-        row_idx = sel.selection["rows"][0]
-        if row_idx < len(rows):
-            code = rows[row_idx]["代码"]
-            st.session_state["kline_stock"] = code
-            st.session_state["wl-table"] = {"selection": {"rows": []}}
-            st.switch_page("src/pages/kline_viewer.py")
-
-    # ── 操作按钮 ──
-    st.divider()
-    col_del, col_empty = st.columns([1, 4])
-    with col_del:
-        to_remove = st.multiselect(
-            "移除自选",
-            options=[f"{w['code']} {w['name']}" for w in watchlist_data],
-            key="watchlist-remove",
-            label_visibility="collapsed",
-            placeholder="选择要移除的股票...",
-        )
-        if to_remove and st.button("确认移除", type="secondary"):
-            removed = 0
-            for item in to_remove:
-                code = item.split(" ")[0]
-                try:
-                    stock = StockBasic.get(StockBasic.code == code)
-                    deleted = Watchlist.delete().where(
-                        Watchlist.user == user,
-                        Watchlist.stock == stock,
-                    ).execute()
-                    removed += deleted
-                except Exception as e:
-                    logger.warning("移除自选股失败: %s %s", code, e)
-            if removed > 0:
-                st.success(f"已移除 {removed} 只股票")
-                st.rerun()
+        with row_cols[0]:
+            st.code(w["code"], language=None)
+        with row_cols[1]:
+            st.write(w["name"])
+        with row_cols[2]:
+            st.write(price_str)
+        with row_cols[3]:
+            st.write(change_str)
+        with row_cols[4]:
+            st.write(wx)
+        with row_cols[5]:
+            st.write(score_str)
+        with row_cols[6]:
+            col_k, col_r = st.columns([1, 1])
+            with col_k:
+                if st.button("📈 K线", key=f"wl-kline-{w['code']}", help=f"查看 {w['code']} K线"):
+                    st.session_state["kline_stock"] = w["code"]
+                    st.switch_page("src/pages/kline_viewer.py")
+            with col_r:
+                if st.button("❌", key=f"wl-remove-{w['code']}", help=f"从自选移除 {w['code']}"):
+                    try:
+                        stock = StockBasic.get(StockBasic.code == w["code"])
+                        Watchlist.delete().where(
+                            Watchlist.user == user,
+                            Watchlist.stock == stock,
+                        ).execute()
+                        st.toast(f"已移除 {w['code']}", icon="🗑️")
+                        st.rerun()
+                    except Exception as e:
+                        logger.warning("移除自选股失败: %s %s", w["code"], e)
 
     db.close()
 
