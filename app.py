@@ -24,6 +24,7 @@ pages = {
     "玄学量化": [
         st.Page("src/pages/home.py", title="八字排盘", icon="🔮"),
         st.Page("src/pages/lucky.py", title="幸运运势", icon="🍀"),
+        st.Page("src/pages/constellation.py", title="星座算命", icon="♈"),
         st.Page("src/pages/stock_picker.py", title="财神选股", icon="📊"),
         st.Page("src/pages/daily_signal.py", title="每日信号", icon="📅"),
     ],
