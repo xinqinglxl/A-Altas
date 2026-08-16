@@ -30,6 +30,7 @@ pages = {
     ],
     "K线工具": [
         st.Page("src/pages/kline_viewer.py", title="K线看盘", icon="📈"),
+        st.Page("src/pages/stock_detail.py", title="股票详情", icon="🏢"),
     ],
     "系统": [
         st.Page("src/pages/user_profile.py", title="用户管理", icon="👤"),

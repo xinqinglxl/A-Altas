@@ -128,7 +128,7 @@ def market_page():
     st.subheader(f"扫描结果（匹配 {len(results)} / {total_stocks} 只）")
 
     # 表头
-    h_cols = st.columns([1, 2, 1, 1, 1, 1.5, 1, 1, 1.5])
+    h_cols = st.columns([1, 2, 1, 1, 1, 1.5, 1, 1, 2])
     headers = ["代码", "名称", "涨跌幅", "最新价", "成交量", "触发条件", "推荐", "详情", "操作"]
     for i, h in enumerate(headers):
         with h_cols[i]:
@@ -148,7 +148,7 @@ def market_page():
             pass
 
     for r in results:
-        row_cols = st.columns([1, 2, 1, 1, 1, 1.5, 1, 1, 1.5])
+        row_cols = st.columns([1, 2, 1, 1, 1, 1.5, 1, 1, 2])
 
         pct = r["change_pct"]
         if pct > 0:
@@ -208,9 +208,15 @@ def market_page():
                 if not rec.tech_reasons and not rec.meta_reasons:
                     st.caption("暂无详细分析数据")
         with row_cols[8]:
-            if st.button("📈 K线", key=f"mkt-kline-{r['code']}", help=f"查看 {r['code']} K线"):
-                st.session_state["kline_stock"] = r["code"]
-                st.switch_page("src/pages/kline_viewer.py")
+            col_k, col_d = st.columns([1, 1])
+            with col_k:
+                if st.button("📈 K线", key=f"mkt-kline-{r['code']}", help=f"查看 {r['code']} K线"):
+                    st.session_state["kline_stock"] = r["code"]
+                    st.switch_page("src/pages/kline_viewer.py")
+            with col_d:
+                if st.button("🏢 详情", key=f"mkt-detail-{r['code']}", help=f"查看 {r['code']} 股票详情"):
+                    st.session_state["stock_detail_code"] = r["code"]
+                    st.switch_page("src/pages/stock_detail.py")
 
     # ── 数据来源说明 ──
     sources = set(r.get("source", "unknown") for r in results)

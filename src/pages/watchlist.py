@@ -243,11 +243,15 @@ def watchlist_page():
         with row_cols[5]:
             st.write(score_str)
         with row_cols[6]:
-            col_k, col_r = st.columns([1, 1])
+            col_k, col_d, col_r = st.columns([1.2, 1.2, 0.6])
             with col_k:
                 if st.button("📈 K线", key=f"wl-kline-{w['code']}", help=f"查看 {w['code']} K线"):
                     st.session_state["kline_stock"] = w["code"]
                     st.switch_page("src/pages/kline_viewer.py")
+            with col_d:
+                if st.button("🏢 详情", key=f"wl-detail-{w['code']}", help=f"查看 {w['code']} 股票详情"):
+                    st.session_state["stock_detail_code"] = w["code"]
+                    st.switch_page("src/pages/stock_detail.py")
             with col_r:
                 if st.button("❌", key=f"wl-remove-{w['code']}", help=f"从自选移除 {w['code']}"):
                     try:
