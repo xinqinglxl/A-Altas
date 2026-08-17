@@ -1,23 +1,70 @@
 """
-财神选股 - 八字合盘 & 五行匹配推荐
+财神选股 - 分类别推荐（八字合盘 / 五行匹配 / 幸运数字 / 幸运颜色 / 天干择时）
+进入页面自动加载，每个类别默认推荐 5 只股票并附推荐理由。
 """
 
 import streamlit as st
 from datetime import date
 
-from src.data.db import db, UserProfile, StockBasic
-from src.strategy.scorer import get_caishen_ranking, get_usd_price, score_all_stocks
+from src.data.db import db, UserProfile
+from src.strategy.scorer import get_categorized_picks, get_usd_price
 from src.data.exchange import get_usd_cny_latest
+from src.metaphysics.fortune import get_lucky_numbers, get_lucky_colors
+from src.strategy.scorer import _user_bazi_from_profile
 from src.utils.logger import get_logger
 from src.utils.user_guard import require_user_profile
 from src.components.user_header import render_user_header
 
 logger = get_logger(__name__)
 
+# ── 分类配置 ──
+CATEGORY_CONFIG = [
+    {
+        "key": "bazi",
+        "icon": "🧬",
+        "title": "八字合盘推荐",
+        "desc": "公司八字与你的八字契合度最高的股票",
+        "score_field": "bazi_score",
+        "score_label": "合盘分",
+    },
+    {
+        "key": "wuxing",
+        "icon": "⚖️",
+        "title": "五行匹配推荐",
+        "desc": "板块五行与你的日主五行关系最佳的股票",
+        "score_field": "wuxing_score",
+        "score_label": "五行分",
+    },
+    {
+        "key": "lucky_number",
+        "icon": "🔢",
+        "title": "幸运数字推荐",
+        "desc": "股票代码中包含你幸运数字的股票",
+        "score_field": "composite_score",
+        "score_label": "财神指数",
+    },
+    {
+        "key": "lucky_color",
+        "icon": "🎨",
+        "title": "幸运颜色推荐",
+        "desc": "板块五行对应你幸运颜色的股票",
+        "score_field": "wuxing_score",
+        "score_label": "五行分",
+    },
+    {
+        "key": "timing",
+        "icon": "⏰",
+        "title": "天干择时推荐",
+        "desc": "今日日柱五行与板块五行关系最佳的股票",
+        "score_field": "timing_score",
+        "score_label": "择时分",
+    },
+]
+
 
 def stock_picker_page():
     st.title("财神选股")
-    st.caption("基于八字合盘 + 五行匹配 + 天干择时的综合推荐")
+    st.caption("八字合盘 · 五行匹配 · 幸运数字 · 幸运颜色 · 天干择时 — 五维分类推荐")
 
     db.connect(reuse_if_open=True)
 
@@ -43,128 +90,95 @@ def stock_picker_page():
             st.markdown(f"忌神: **{user.ji_shen}**")
 
         st.divider()
-        st.markdown("**图例**")
-        st.markdown("🔴 假数据 - 数据为模拟生成")
 
-    # ---- 主区域顶部工具栏：刷新按钮靠右 ----
-    col_left, col_right = st.columns([4, 1])
-    with col_left:
-        st.subheader(f"财神排行榜")
-        st.caption(f"评分日期: {date.today()}")
-    with col_right:
-        st.write("")  # 占位对齐
-        refresh = st.button("🔄 重新计算", type="primary", use_container_width=True, help="清除缓存并重新评分")
+        # 幸运指标摘要
+        user_bazi = _user_bazi_from_profile(user)
+        lucky_nums = get_lucky_numbers(user_bazi)
+        lucky_cols = get_lucky_colors(user_bazi)
 
-    # ---- 主区域：排行榜 ----
-    ranking = []
-    try:
-        with st.spinner("正在计算财神指数..."):
-            ranking = get_caishen_ranking(user, refresh=refresh)
-        logger.info("财神排行榜加载完成: %d 条结果, refresh=%s", len(ranking), refresh)
-    except Exception as e:
-        logger.error("财神排行榜加载失败: %s", e, exc_info=True)
-        st.error(f"加载失败：{e}")
+        st.markdown("#### 你的幸运指标")
+        if lucky_nums:
+            st.markdown(f"幸运数字: **{'、'.join(str(n) for n in lucky_nums[:6])}**")
+        if lucky_cols:
+            st.markdown(f"幸运颜色: **{'、'.join(lucky_cols[:6])}**")
 
-    if not ranking:
-        st.warning("暂无评分数据。点击上方「重新计算」按钮生成排行榜。")
-        if st.button("🔄 立即计算", type="primary"):
-            st.rerun()
-        db.close()
-        return
+        st.divider()
+
+        # 刷新按钮
+        refresh = st.button("🔄 重新计算", use_container_width=True,
+                            help="清除缓存并重新评分所有股票")
+
+    # ---- 主区域：自动加载分类推荐 ----
+    st.caption(f"评分日期: {date.today()}")
 
     # 汇率
     rate = get_usd_cny_latest() or 7.2
     st.caption(f"当前参考汇率: 1 USD = {rate:.4f} CNY")
 
-    # 构建表格数据
-    table_data = []
-    row_codes = []  # 记录每行的股票代码（用于行点击导航）
-    for i, r in enumerate(ranking, 1):
-        fake_flag = "假" if r["data_source"] == "fake" else "真"
-        table_data.append({
-            "排名": i,
-            "代码": r["stock_code"],
-            "名称": r["stock_name"],
-            "数据": fake_flag,
-            "财神指数": f"{r['composite_score']:.1f}",
-            "八字合盘": f"{r['bazi_score']:.1f}",
-            "五行匹配": f"{r['wuxing_score']:.1f}",
-            "天干择时": f"{r['timing_score']:.1f}",
-        })
-        row_codes.append(r["stock_code"])
+    try:
+        with st.spinner("正在计算财神指数..."):
+            picks = get_categorized_picks(user, refresh=refresh)
+    except Exception as e:
+        logger.error("财神选股加载失败: %s", e, exc_info=True)
+        st.error(f"加载失败：{e}")
+        db.close()
+        return
 
-    sel = st.dataframe(
-        table_data,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "排名": st.column_config.NumberColumn(width="small"),
-            "数据": st.column_config.TextColumn(width="small"),
-            "财神指数": st.column_config.TextColumn(width="small"),
-            "八字合盘": st.column_config.TextColumn(width="small"),
-            "五行匹配": st.column_config.TextColumn(width="small"),
-            "天干择时": st.column_config.TextColumn(width="small"),
-        },
-        on_select="rerun",
-        selection_mode="single-row",
-        key="sp-table",
-    )
+    if not picks:
+        st.warning("暂无评分数据，请先在数据库中添加股票基本信息。")
+        db.close()
+        return
 
-    # 行点击 → 跳转K线
-    if sel is not None and hasattr(sel, "selection") and sel.selection.get("rows"):
-        row_idx = sel.selection["rows"][0]
-        if row_idx < len(row_codes):
-            st.session_state["kline_stock"] = row_codes[row_idx]
-            st.session_state["sp-table"] = {"selection": {"rows": []}}
-            st.switch_page("src/pages/kline_viewer.py")
+    # ---- 渲染每个分类 ----
+    for cfg in CATEGORY_CONFIG:
+        key = cfg["key"]
+        items = picks.get(key, [])
 
-    # ── 股票 K线快捷跳转 ──
-    col_pick, col_go = st.columns([3, 1])
-    with col_pick:
-        pick_code = st.selectbox(
-            "快速跳转K线",
-            options=[f"{r['stock_code']} {r['stock_name']}" for r in ranking],
-            key="sp-quick-pick",
-            label_visibility="collapsed",
-            placeholder="选择股票跳转K线...",
-        )
-    with col_go:
-        if st.button("📈 查看K线", key="sp-quick-go", use_container_width=True, type="secondary"):
-            code = pick_code.split(" ")[0] if pick_code else row_codes[0]
-            st.session_state["kline_stock"] = code
-            st.switch_page("src/pages/kline_viewer.py")
+        st.divider()
+        st.subheader(f"{cfg['icon']} {cfg['title']}")
+        st.caption(cfg["desc"])
 
-    # 详情展开
-    st.divider()
-    st.subheader("TOP 5 详细评分")
+        if not items:
+            st.info(f"暂无符合条件的股票推荐")
+            continue
 
-    for idx, r in enumerate(ranking[:5]):
-        with st.expander(
-            f"#{idx+1} {r['stock_code']} {r['stock_name']} "
-            f"| 财神指数: {r['composite_score']:.1f}"
-            f"{' [假数据]' if r['data_source'] == 'fake' else ''}"
-        ):
-            cols = st.columns([2, 2, 2, 1])
-            with cols[0]:
-                st.metric("八字合盘", f"{r['bazi_score']:.1f} / 100")
-            with cols[1]:
-                st.metric("五行匹配", f"{r['wuxing_score']:.1f} / 100")
-            with cols[2]:
-                st.metric("天干择时", f"{r['timing_score']:.1f} / 100")
-            with cols[3]:
-                st.write("")
-                if st.button("📈 K线", key=f"sp-kline-{r['stock_code']}", help="查看K线"):
+        # 表头
+        header_cols = st.columns([0.5, 2.2, 1.2, 4.5, 0.8, 0.8])
+        headers = ["#", "代码 / 名称", cfg["score_label"], "推荐理由", "K线", "详情"]
+        for col, h in zip(header_cols, headers):
+            col.markdown(f"**{h}**")
+
+        # 每行
+        for idx, r in enumerate(items, 1):
+            row_cols = st.columns([0.5, 2.2, 1.2, 4.5, 0.8, 0.8])
+
+            with row_cols[0]:
+                st.markdown(f"{idx}")
+
+            with row_cols[1]:
+                fake_flag = " 🔴" if r.get("data_source") == "fake" else ""
+                st.markdown(f"**{r['stock_code']}** {r['stock_name']}{fake_flag}")
+                if r.get("sector"):
+                    st.caption(f"板块: {r['sector']}")
+
+            with row_cols[2]:
+                score_val = r.get(cfg["score_field"], 0)
+                st.markdown(f"**{score_val:.1f}**")
+
+            with row_cols[3]:
+                st.caption(r.get("reason", r.get("summary", "")))
+
+            with row_cols[4]:
+                if st.button("📈", key=f"sp-{key}-kline-{r['stock_code']}",
+                             help=f"查看 {r['stock_code']} K线"):
                     st.session_state["kline_stock"] = r["stock_code"]
                     st.switch_page("src/pages/kline_viewer.py")
 
-            st.markdown(f"**点评**: {r['summary']}")
-
-            # 美元换算示例
-            usd_info = get_usd_price(10.0)
-            st.caption(
-                f"参考: 10 CNY ≈ {usd_info['usd']} USD "
-                f"(汇率: {usd_info['rate']}, 来源: {usd_info['rate_source']})"
-            )
+            with row_cols[5]:
+                if st.button("🏢", key=f"sp-{key}-detail-{r['stock_code']}",
+                             help=f"查看 {r['stock_code']} 详情"):
+                    st.session_state["stock_detail_code"] = r["stock_code"]
+                    st.switch_page("src/pages/stock_detail.py")
 
     db.close()
 
