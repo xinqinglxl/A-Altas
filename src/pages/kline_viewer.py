@@ -398,7 +398,7 @@ def kline_viewer_page():
     _watchlist_toggle()
 
     # ═══════════════════════════════════════════
-    #  买入推荐评估（综合技术面+玄学面，直接展示详情）
+    #  买入推荐评估（综合技术面+玄学面，弹窗展示）
     # ═══════════════════════════════════════════
     stock_obj_rec = StockBasic.get_or_none(StockBasic.code == loaded_symbol)
     stock_name = stock_obj_rec.name if stock_obj_rec else loaded_symbol
@@ -425,102 +425,124 @@ def kline_viewer_page():
         user_bazi=user_bazi,
     )
 
-    st.divider()
-    st.subheader(f"{rec.emoji}  {rec.level}  ·  综合评分 {rec.total_score}/100  ({loaded_symbol} {stock_name})")
+    # 存入 session_state 供弹窗使用
+    st.session_state["kline_rec"] = rec
+    st.session_state["kline_stock_name"] = stock_name
+    st.session_state["kline_stock_wx"] = stock_wx
 
-    # 分维度展示
-    col_tech, col_meta = st.columns(2)
-    with col_tech:
-        st.caption(f"**技术面** {rec.tech_score}/40 分")
-        if rec.tech_reasons:
-            for r in rec.tech_reasons:
-                st.caption(f"• {r}")
-        else:
-            st.caption("• 暂无显著技术信号")
-    with col_meta:
-        st.caption(f"**玄学面** {rec.meta_score}/60 分")
-        if rec.meta_reasons:
-            for r in rec.meta_reasons:
-                st.caption(f"• {r}")
-        else:
-            st.caption("• 请先设置八字信息以获取玄学评估")
-
-    # ═══════════════════════════════════════════
-    #  未来一周运势预测（默认显示）
-    # ═══════════════════════════════════════════
+    # 未来一周运势预测计算（如果开启）
+    weekly = []
     if loaded_show_fortune:
         user_f = get_current_user()
-        if user_f is None:
-            st.caption("⚠️ 运势预测需要八字信息，请先在【八字排盘】页面输入生辰")
-        else:
-            if user_f.birth_date and user_f.birth_time:
-                stock_obj = StockBasic.get_or_none(StockBasic.code == loaded_symbol)
-                stock_wx = stock_obj.wuxing if stock_obj else ""
-                weekly = _get_weekly_fortune_for_stock(
-                    str(user_f.birth_date), user_f.birth_time, stock_wx
-                )
+        if user_f and user_f.birth_date and user_f.birth_time:
+            stock_obj_f = StockBasic.get_or_none(StockBasic.code == loaded_symbol)
+            stock_wx_f = stock_obj_f.wuxing if stock_obj_f else ""
+            weekly = _get_weekly_fortune_for_stock(
+                str(user_f.birth_date), user_f.birth_time, stock_wx_f
+            )
+    st.session_state["kline_weekly"] = weekly
 
-                st.divider()
-                st.subheader(f"🔮 未来一周买入 {loaded_symbol} 运势预测")
+    # ── 推荐信息弹窗 ──
+    @st.dialog("📊 推荐评估", width="large")
+    def _recommendation_dialog():
+        rec = st.session_state.get("kline_rec")
+        stock_name = st.session_state.get("kline_stock_name", "")
+        stock_wx = st.session_state.get("kline_stock_wx", "")
+        loaded_sym = st.session_state["kline_loaded"]["symbol"]
+        weekly = st.session_state.get("kline_weekly", [])
+
+        if rec is None:
+            st.warning("暂无推荐数据")
+            return
+
+        # 综合评分
+        st.subheader(f"{rec.emoji}  {rec.level}")
+        st.caption(f"综合评分 {rec.total_score}/100  ·  {loaded_sym} {stock_name}")
+
+        col_tech, col_meta = st.columns(2)
+        with col_tech:
+            st.caption(f"**技术面** {rec.tech_score}/40 分")
+            if rec.tech_reasons:
+                for r in rec.tech_reasons:
+                    st.caption(f"• {r}")
+            else:
+                st.caption("• 暂无显著技术信号")
+        with col_meta:
+            st.caption(f"**玄学面** {rec.meta_score}/60 分")
+            if rec.meta_reasons:
+                for r in rec.meta_reasons:
+                    st.caption(f"• {r}")
+            else:
+                st.caption("• 请先设置八字信息以获取玄学评估")
+
+        # 未来一周运势
+        if weekly:
+            st.divider()
+            st.subheader("🔮 未来一周买入运势预测")
+            user_f = get_current_user()
+            if user_f:
                 st.caption(f"用户: {user_f.name} (日主: {user_f.day_master}) | 股票五行: {stock_wx or '未知'}")
 
-                # 表格展示
-                row_data = []
-                for w in weekly:
-                    combined = w["combined"]
+            row_data = []
+            for w in weekly:
+                combined = w["combined"]
+                if combined >= 75:
+                    icon = "🟢"
+                elif combined >= 55:
+                    icon = "🟡"
+                elif combined >= 40:
+                    icon = "🟠"
+                else:
+                    icon = "🔴"
+
+                if not w["is_trading"]:
+                    icon = "⚫"
+
+                action = ""
+                if w["is_trading"]:
                     if combined >= 75:
-                        icon = "🟢"
+                        action = "✅ 强烈推荐"
                     elif combined >= 55:
-                        icon = "🟡"
+                        action = "👍 可考虑"
                     elif combined >= 40:
-                        icon = "🟠"
+                        action = "⚠️ 谨慎"
                     else:
-                        icon = "🔴"
+                        action = "❌ 不建议"
+                else:
+                    action = f"休市({w['nt_reason']})"
 
-                    if not w["is_trading"]:
-                        icon = "⚫"
+                reasons_str = " · ".join(w["reasons"][:3]) if w["reasons"] else "—"
 
-                    action = ""
-                    if w["is_trading"]:
-                        if combined >= 75:
-                            action = "✅ 强烈推荐"
-                        elif combined >= 55:
-                            action = "👍 可考虑"
-                        elif combined >= 40:
-                            action = "⚠️ 谨慎"
-                        else:
-                            action = "❌ 不建议"
-                    else:
-                        action = f"休市({w['nt_reason']})"
+                row_data.append({
+                    "日期": w["date"],
+                    "星期": w["weekday"],
+                    "日柱": f"{w['gan']}{w['zhi']}",
+                    "五行": w["wuxing"],
+                    "综合评分": f"{icon} {combined}分",
+                    "建议": action,
+                    "关键因素": reasons_str,
+                    "_score": combined,
+                })
 
-                    reasons_str = " · ".join(w["reasons"][:3]) if w["reasons"] else "—"
+            df_fortune = pd.DataFrame(row_data)
+            st.dataframe(
+                df_fortune,
+                column_order=["日期", "星期", "日柱", "五行", "综合评分", "建议", "关键因素"],
+                hide_index=True,
+                use_container_width=True,
+                height=38 * (len(row_data) + 1),
+            )
 
-                    row_data.append({
-                        "日期": w["date"],
-                        "星期": w["weekday"],
-                        "日柱": f"{w['gan']}{w['zhi']}",
-                        "五行": w["wuxing"],
-                        "综合评分": f"{icon} {combined}分",
-                        "建议": action,
-                        "关键因素": reasons_str,
-                        "_score": combined,
-                    })
+            rec_dates = {w["date"] for w in weekly if w["is_trading"] and w["combined"] >= 55}
+            if rec_dates:
+                st.caption(f"📌 共 {len(rec_dates)} 个「推荐关注」交易日（评分≥55）")
 
-                df_fortune = pd.DataFrame(row_data)
-                st.dataframe(
-                    df_fortune,
-                    column_order=["日期", "星期", "日柱", "五行", "综合评分", "建议", "关键因素"],
-                    hide_index=True,
-                    use_container_width=True,
-                    height=38 * (len(row_data) + 1),
-                )
-
-                # 在K线数据上标注推荐日（可选展示）
-                rec_dates = {w["date"] for w in weekly if w["is_trading"] and w["combined"] >= 55}
-                if rec_dates:
-                    st.caption(f"📌 K线图上标注了 {len(rec_dates)} 个「推荐关注」日期（评分≥55的交易日）")
-            else:
-                st.caption("⚠️ 八字信息不完整，无法生成运势预测")
+    # ── 推荐评估按钮 ──
+    col_rec, _ = st.columns([1, 4])
+    with col_rec:
+        if st.button("📊 推荐评估", type="secondary", use_container_width=True,
+                     help="点击查看综合推荐评估与运势预测"):
+            _recommendation_dialog()
 
     # ═══════════════════════════════════════════
     #  K 线图表
