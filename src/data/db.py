@@ -187,6 +187,23 @@ class Watchlist(BaseModel):
         indexes = ((("user", "stock"), True),)  # 同一用户不能重复添加同一股票
 
 
+class Position(BaseModel):
+    """用户持仓记录 — 记录买入价、日期、数量，用于计算止损止盈"""
+
+    user = ForeignKeyField(UserProfile, backref="positions")
+    stock = ForeignKeyField(StockBasic, backref="positions")
+    entry_price = FloatField()  # 买入价
+    entry_date = DateField(default=date.today)  # 买入日期
+    quantity = IntegerField(default=100)  # 持仓数量（股）
+    note = CharField(max_length=100, null=True)  # 备注
+    is_active = BooleanField(default=True)  # 是否仍持仓（卖出后标记 False）
+    created_at = DateTimeField(default=datetime.now)
+
+    class Meta:
+        table_name = "position"
+        indexes = ((("user", "stock"), True),)  # 同一用户同一股票只保留一条活跃持仓
+
+
 def init_db():
     """初始化数据库，创建所有表"""
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -202,6 +219,7 @@ def init_db():
             DailySignal,
             StockScore,
             Watchlist,
+            Position,
         ],
         safe=True,
     )
